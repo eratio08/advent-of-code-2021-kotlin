@@ -6,6 +6,12 @@ repositories {
     mavenCentral()
 }
 
+kotlin {
+    jvmToolchain {
+        (this as JavaToolchainSpec).languageVersion.set(JavaLanguageVersion.of("17"))
+    }
+}
+
 tasks {
     sourceSets {
         main {
