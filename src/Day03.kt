@@ -70,7 +70,7 @@ fun main() {
     val testPart1 = part1(testInput)
     check(testPart1 == 198) { "Expected 198, got $testPart1" }
     val testPart2 = part2(testInput)
-    check(part2(testInput) == 230) { "Expected 230, got $testPart2" }
+    check(testPart2 == 230) { "Expected 230, got $testPart2" }
 
     val input = readInput("Day03")
     println(part1(input))
