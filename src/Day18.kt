@@ -1,81 +1,103 @@
+import java.util.*
+
+sealed class SnailfishNumber
+data class LiteralSnailfishNumber(val num: Int) : SnailfishNumber()
+data class SnailfishNumberPair(val x: SnailfishNumber, val y: SnailfishNumber) : SnailfishNumber() {
+    val isLiteralPair = x is LiteralSnailfishNumber && y is LiteralSnailfishNumber
+}
+
+
 fun main() {
-    data class TargetArea(val xs: IntRange, val ys: IntRange) {
-        val xMax = xs.maxOf { it }
-        val yMin = ys.minOf { it }
-    }
+    data class ReductionResult(val num: SnailfishNumber?, val leftExcess: Int = 0, val rightExcess: Int = 0)
 
-    data class Probe(val xVelocity: Int, val yVelocity: Int, val x: Int = 0, val y: Int = 0) {
-        fun step(): Probe {
-            val newXVelocity = when {
-                xVelocity > 0 -> xVelocity - 1
-                xVelocity < 0 -> xVelocity + 1
-                else -> 0
-            }
-            return copy(x = x + xVelocity, y = y + yVelocity, xVelocity = newXVelocity, yVelocity = yVelocity - 1)
-        }
+    fun bottomUp(line: String): SnailfishNumber {
+        val charStack = Stack<Char>()
+        val numStack = Stack<SnailfishNumber>()
 
-        fun hits(ta: TargetArea): Boolean =
-            ta.xs.contains(x) && ta.ys.contains(y)
-
-        fun isAfter(ta: TargetArea): Boolean =
-            x > ta.xMax || y < ta.yMin
-    }
-
-
-    fun parse(line: String): TargetArea {
-        val ranges = line.substringAfter("target area: ").split(", ")
-        val xsParts = ranges[0].substringAfter("x=").split("..")
-        val xs = (xsParts[0].toInt()..xsParts[1].toInt())
-        val ysParts = ranges[1].substringAfter("y=").split("..")
-        val ys = (ysParts[0].toInt()..ysParts[1].toInt())
-        return TargetArea(xs, ys)
-    }
-
-    fun buildTrajectory(p: Probe, ta: TargetArea): List<Probe> {
-        val trajectory = generateSequence(p.step()) { prev ->
-            val next = prev.step()
-            if (next.isAfter(ta)) null
-            else next
-        }.toList()
-        return if (trajectory.any { it.hits(ta) }) {
-            trajectory
-        } else {
-            emptyList()
-        }
-    }
-
-    fun optimizeForHeight(ta: TargetArea): Probe {
-        var x = 6
-        var y = 9
-        var highestY = 0
-        (0 until 1000).forEach {
-            val probe = Probe(x, y)
-            val tra = buildTrajectory(probe, ta).toList()
-            val hitsTarget = tra.any {
-                val c = it.hits(ta)
-                c
-            }
-            if (tra.isEmpty() || !hitsTarget) {
-                y += 1
-            } else {
-                val maxY = tra.maxOf { it.y }
-                if (maxY >= highestY) {
-                    highestY = maxY
-                    y += 1
-                } else {
-                    x += 1
+        line.forEach {
+            when (it) {
+                ']' -> {
+                    var n = charStack.pop()
+                    val snd = if (n == ',') {
+                        numStack.pop()
+                    } else {
+                        LiteralSnailfishNumber(n.toString().toInt()).also {
+                            charStack.pop()
+                        }
+                    }
+                    n = charStack.pop()
+                    val fst = if (n == '[') {
+                        numStack.pop()
+                    } else {
+                        LiteralSnailfishNumber(n.toString().toInt()).also {
+                            charStack.pop()
+                        }
+                    }
+                    numStack.push(SnailfishNumberPair(fst, snd))
                 }
-
+                else -> charStack.push(it)
             }
         }
-        TODO()
+
+        return numStack.pop()
+    }
+
+    fun parse(lines: List<String>): List<SnailfishNumber> {
+        return lines.map { bottomUp(it) }
+    }
+
+    fun reduce(num: SnailfishNumber, level: Int = 0): ReductionResult {
+        return when (num) {
+            is LiteralSnailfishNumber -> {
+                if (num.num > 9) {
+                    val half = num.num / 2
+                    val otherHalf = num.num - half
+                    ReductionResult(
+                        SnailfishNumberPair(LiteralSnailfishNumber(half), LiteralSnailfishNumber(otherHalf))
+                    )
+                } else {
+                    ReductionResult(num)
+                }
+            }
+            is SnailfishNumberPair -> when {
+                level >= 4 -> {
+                    val (x, y) = num
+                    // explode
+                    if (x is LiteralSnailfishNumber && y is LiteralSnailfishNumber) {
+                        return ReductionResult(null, x.num, y.num)
+                    }
+
+                    // like else
+                    TODO()
+                }
+                else -> {
+                    val (rNum, rrEx, rlEx) = reduce(num.x)
+                    val (lNum, lrEx, llEx) = reduce(num.y)
+                    when {
+                        (rNum != null && lNum != null) -> ReductionResult(
+                            SnailfishNumberPair(rNum, lNum),
+                            rrEx + lrEx,
+                            rlEx + llEx
+                        )
+                        rNum == null && lNum == null -> ReductionResult(
+                            null,
+                            rrEx + lrEx,
+                            rlEx + llEx
+                        )
+                        rNum == null -> {
+
+                            ReductionResult(SnailfishNumberPair(LiteralSnailfishNumber(0)))
+                        }
+                        else -> TODO()
+                    }
+                    TODO()
+                }
+            }
+        }
     }
 
     fun part1(input: List<String>): Int {
-        val ta = parse(input.first())
-        val x = buildTrajectory(Probe(6, 9), ta).toList()
-        val maxH = x.firstOrNull { it.yVelocity == 0 }?.y
-//        val n = optimizeForHeight(ta)
+        val x = parse(input)
         TODO()
     }
 
@@ -83,13 +105,13 @@ fun main() {
         TODO()
     }
 
-    val testInput = readInput("Day17_test")
+    val testInput = readInput("Day18_test")
     val testPart1 = part1(testInput)
     check(testPart1 == 45) { "Expected 45, got $testPart1" }
 //    val testPart2 = part2(testInput)
 //    check(testPart2 == 1L) { "Expected 1, got $testPart2" }
 
-    val input = readInput("Day17")
+    val input = readInput("Day18")
     println(part1(input))
 //    println(part2(input))
 }
